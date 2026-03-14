@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prescripto AI — Medical Document Explainer</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Syne (display) + Instrument Serif (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- Tesseract.js OCR -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+  <!-- Custom styles -->
+  <link rel="stylesheet" href="style.css" />
+
+  <script>
+    // Tailwind config
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink:    '#0D0D0D',
+            paper:  '#F5F0E8',
+            cream:  '#EDE7D6',
+            sage:   '#4A7C59',
+            sage2:  '#3A6147',
+            amber:  '#C97B2E',
+            rust:   '#B94E2E',
+            mist:   '#8A9BAB',
+          },
+          fontFamily: {
+            display: ['Syne', 'sans-serif'],
+            serif:   ['Instrument Serif', 'serif'],
+            mono:    ['JetBrains Mono', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
+</head>
+
+<body class="bg-paper text-ink font-serif min-h-screen">
+
+  <!-- ═══════════════════════════════════════════════
+       NOISE OVERLAY — atmospheric texture
+  ═══════════════════════════════════════════════ -->
+  <div class="noise-overlay" aria-hidden="true"></div>
+
+  <!-- ═══════════════════════════════════════════════
+       HEADER
+       CUSTOMIZE: Change tagline, logo text, or colors
+  ═══════════════════════════════════════════════ -->
+  <header class="relative z-10 border-b border-ink/10 px-6 py-5">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="logo-mark">
+          <!-- SVG Logo mark -->
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="36" height="36" rx="8" fill="#0D0D0D"/>
+            <path d="M10 18h16M18 10v16" stroke="#F5F0E8" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="18" cy="18" r="5" stroke="#4A7C59" stroke-width="2"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="font-display font-800 text-xl leading-none tracking-tight">Prescripto<span class="text-sage">AI</span></h1>
+          <!-- CUSTOMIZE: Change the tagline below -->
+          <p class="text-xs text-ink/40 font-mono mt-0.5">Medical Document Explainer</p>
+        </div>
+      </div>
+
+      <!-- Encryption status pill — updates dynamically via JS -->
+      <div id="encryptionPill" class="enc-pill enc-idle">
+        <span class="enc-dot"></span>
+        <span class="enc-label">Idle</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════
+       HERO SECTION
+       CUSTOMIZE: Edit headline, subtitle, disclaimer
+  ═══════════════════════════════════════════════ -->
+  <section class="relative z-10 max-w-4xl mx-auto px-6 pt-14 pb-10">
+    <div class="hero-grid">
+      <div>
+        <div class="eyebrow-tag mb-4">AI-Powered · Private · Encrypted</div>
+        <!-- CUSTOMIZE: Change the main headline -->
+        <h2 class="font-display font-800 text-4xl sm:text-5xl leading-[1.05] tracking-tight mb-4">
+          Understand your<br/><em class="font-serif not-italic text-sage">prescription</em><br/>in plain words.
+        </h2>
+        <!-- CUSTOMIZE: Change the subtitle -->
+        <p class="text-ink/60 text-lg leading-relaxed max-w-md">
+          Upload a prescription or lab report image and get a clear, plain-language explanation — instantly, with end-to-end encryption.
+        </p>
+        <!-- Disclaimer -->
+        <p class="mt-4 text-xs text-ink/40 font-mono border-l-2 border-sage/40 pl-3 leading-relaxed">
+          ⚠ This tool explains documents only. It does NOT provide medical advice, diagnoses, or suggest any medicine or dosage. Always consult your doctor.
+        </p>
+      </div>
+
+      <!-- Decorative side element -->
+      <div class="hero-deco" aria-hidden="true">
+        <div class="deco-ring ring-1"></div>
+        <div class="deco-ring ring-2"></div>
+        <div class="deco-ring ring-3"></div>
+        <div class="deco-cross">✚</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       MAIN APP CARD
+  ═══════════════════════════════════════════════ -->
+  <main class="relative z-10 max-w-4xl mx-auto px-6 pb-20">
+
+    <!-- Upload Card -->
+    <div class="app-card mb-6">
+      <div class="app-card-header">
+        <span class="step-badge">01</span>
+        <h3 class="font-display font-700 text-lg">Upload Document</h3>
+      </div>
+
+      <!-- Drop Zone -->
+      <div id="dropZone" class="drop-zone" role="button" tabindex="0"
+           aria-label="Upload prescription or lab report"
+           onclick="document.getElementById('fileInput').click()"
+           ondragover="handleDragOver(event)"
+           ondragleave="handleDragLeave(event)"
+           ondrop="handleDrop(event)"
+           onkeydown="if(event.key==='Enter')document.getElementById('fileInput').click()">
+
+        <div id="dropContent" class="drop-content">
+          <div class="drop-icon">
+            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+              <rect x="8" y="6" width="24" height="30" rx="3" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M14 15h12M14 20h12M14 25h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M26 2l6 6h-6V2z" fill="currentColor" opacity="0.3"/>
+            </svg>
+          </div>
+          <p class="font-display font-600 text-base mt-3">Drop your file here</p>
+          <p class="text-sm text-ink/40 mt-1">or click to browse</p>
+          <p class="text-xs text-ink/30 mt-3 font-mono">Supports: JPG, PNG, PDF, TIFF, BMP</p>
+        </div>
+
+        <!-- Preview (hidden until file selected) -->
+        <div id="previewContent" class="preview-content hidden">
+          <img id="previewImg" src="" alt="Preview" class="preview-img" />
+          <div id="pdfPreview" class="pdf-preview hidden">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+              <rect x="6" y="2" width="36" height="44" rx="4" fill="#B94E2E" opacity="0.15"/>
+              <rect x="6" y="2" width="36" height="44" rx="4" stroke="#B94E2E" stroke-width="1.5"/>
+              <text x="24" y="30" text-anchor="middle" fill="#B94E2E" font-family="JetBrains Mono" font-size="12" font-weight="700">PDF</text>
+            </svg>
+          </div>
+          <div class="preview-info">
+            <p id="fileName" class="font-display font-600 text-sm truncate max-w-xs"></p>
+            <p id="fileSize" class="text-xs text-ink/40 font-mono"></p>
+          </div>
+          <button class="change-file-btn" onclick="event.stopPropagation(); resetFile()">✕ Change</button>
+        </div>
+      </div>
+
+      <input type="file" id="fileInput" accept="image/*,.pdf" class="hidden" onchange="handleFileSelect(event)" />
+    </div>
+
+    <!-- Progress / Status Card -->
+    <div id="progressCard" class="app-card mb-6 hidden">
+      <div class="app-card-header">
+        <span class="step-badge">02</span>
+        <h3 class="font-display font-700 text-lg">Processing</h3>
+      </div>
+
+      <div class="space-y-3 mt-2">
+        <div class="progress-step" id="step-ocr">
+          <div class="step-icon">📄</div>
+          <div class="flex-1">
+            <p class="text-sm font-display font-600">OCR Extraction</p>
+            <p class="text-xs text-ink/40 font-mono" id="step-ocr-detail">Waiting…</p>
+          </div>
+          <div class="step-status" id="step-ocr-status">○</div>
+        </div>
+
+        <div class="progress-step" id="step-encrypt">
+          <div class="step-icon">🔐</div>
+          <div class="flex-1">
+            <p class="text-sm font-display font-600">AES-256-GCM Encryption</p>
+            <p class="text-xs text-ink/40 font-mono" id="step-encrypt-detail">Waiting…</p>
+          </div>
+          <div class="step-status" id="step-encrypt-status">○</div>
+        </div>
+
+        <div class="progress-step" id="step-ai">
+          <div class="step-icon">🤖</div>
+          <div class="flex-1">
+            <p class="text-sm font-display font-600">Gemini AI Analysis</p>
+            <p class="text-xs text-ink/40 font-mono" id="step-ai-detail">Waiting…</p>
+          </div>
+          <div class="step-status" id="step-ai-status">○</div>
+        </div>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="progress-bar-track mt-4">
+        <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- Analyze Button -->
+    <button id="analyzeBtn" class="analyze-btn" onclick="runAnalysis()" disabled>
+      <span id="analyzeBtnText">Select a file to analyse</span>
+      <div id="btnSpinner" class="btn-spinner hidden"></div>
+    </button>
+
+    <!-- ═══════════════════════════════════════════════
+         RESULTS SECTION
+    ═══════════════════════════════════════════════ -->
+    <div id="resultsSection" class="hidden mt-8">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-3">
+          <span class="step-badge">03</span>
+          <h3 class="font-display font-700 text-lg">AI Explanation</h3>
+        </div>
+        <button onclick="openAuditLog()" class="audit-btn font-mono text-xs">
+          📋 Audit Log
+        </button>
+      </div>
+
+      <!-- Explanation Card -->
+      <div class="result-card">
+        <div class="result-card-header">
+          <div class="result-badge">Plain Language Summary</div>
+          <span id="resultTimestamp" class="text-xs text-ink/30 font-mono"></span>
+        </div>
+        <div id="aiExplanation" class="result-body"></div>
+      </div>
+
+      <!-- Disclaimer card below results -->
+      <div class="disclaimer-card mt-4">
+        <span class="text-amber font-display font-700 text-sm">⚠ Important Reminder</span>
+        <p class="text-sm text-ink/60 mt-1 leading-relaxed">
+          This explanation is for informational purposes only. It does <strong>not</strong> constitute medical advice and does <strong>not</strong> recommend any medication, dosage, or treatment. Please consult a qualified healthcare professional.
+        </p>
+      </div>
+
+      <!-- New analysis button -->
+      <button onclick="resetAll()" class="mt-4 w-full text-center text-sm font-mono text-ink/40 hover:text-ink transition-colors py-2">
+        ↺ Analyse another document
+      </button>
+    </div>
+
+    <!-- Error Banner -->
+    <div id="errorBanner" class="error-banner hidden mt-4">
+      <span class="text-rust font-display font-700">Error</span>
+      <p id="errorMsg" class="text-sm text-rust/80 mt-1"></p>
+      <button onclick="document.getElementById('errorBanner').classList.add('hidden')" class="close-error">✕</button>
+    </div>
+
+  </main>
+
+  <!-- ═══════════════════════════════════════════════
+       AUDIT LOG MODAL
+  ═══════════════════════════════════════════════ -->
+  <div id="auditModal" class="modal-overlay hidden" onclick="if(event.target===this)closeAuditLog()">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="font-display font-700 text-lg">Audit Log</h3>
+        <button onclick="closeAuditLog()" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-xs text-ink/40 font-mono mb-4">Session history — cleared on page refresh. No data is stored.</p>
+        <div id="auditLogList" class="space-y-2">
+          <p class="text-sm text-ink/40 italic">No entries yet.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       FOOTER
+       CUSTOMIZE: Change footer text/links
+  ═══════════════════════════════════════════════ -->
+  <footer class="relative z-10 border-t border-ink/10 px-6 py-6 text-center">
+    <p class="text-xs text-ink/30 font-mono">
+      PrescriptoAI · All processing is encrypted · No data stored · 
+      <!-- CUSTOMIZE: Add your name/link here -->
+      Built with Gemini AI
+    </p>
+  </footer>
+
+  <!-- Script -->
+  <script src="script.js"></script>
+</body>
+</html>
